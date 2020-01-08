@@ -1,8 +1,12 @@
 import sys
 import itertools
 import argparse
+import re
+
 import mechanicalsoup
 
+from io import StringIO
+import pandas as pd
 
 USERNAME = "admin"
 PASSWORD = "1234"
@@ -63,14 +67,61 @@ def get_router_adsl_status_text(ip_addr):
 
 
 # Parse command line args for sections
-parser = argparse.ArgumentParser(description="Return router ADSL Status")
-parser.add_argument("--show_text", choices=["header","port","counters"], nargs='+')
+parser = argparse.ArgumentParser(description="Return router ADSL Status, either plain text or for RRD Tool")
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--text", choices=["header","port","counters"], 
+                   help="Print the plain text from a section/sections",
+                   default="port", nargs='+')
+group.add_argument("--data", choices=["actual_up","actual_down"],
+                    help="Parse the data from the port section, returned values seperated by colon",
+                    nargs="+")
 args = parser.parse_args()
+
+# Check a mode has been provided
+if not (args.text or args.data):
+    parser.error("No action specified, must be either --text or --data")
+
 
 # Get router text and split into sections
 status_text = get_router_adsl_status_text(IP_ADDR)
-sections = extract_sections(status_text)
-#Print specified sections
-for k in args.show_text or []:
-    print("\n".join(sections[k]))
+
+if args.data:
+    # We have o
+    sections = extract_sections(status_text)
+
+    # Get dataframe from port section, fixed width
+    port_stringio = StringIO("\n".join(sections['port']))
+    port_df = pd.read_fwf(port_stringio, 
+                          index_col=0, # First column is index
+                          skipinitialsep=True, #Remove extra whitespace
+                          delimiter = " :" # Both space and colon are delimiters
+                         )
+
+    # Convert to list if only one value given
+    if isinstance(args.data, str):
+        args.data = [args.data]
+    # Return each value
+    for n,k in enumerate(args.data):
+        if n>0:
+            print(":",end="") # Add seperator
+
+        # Get correct series, upstream or downstream
+        direction = "Upstream" if k.endswith("up") else "Downstream"
+        series = port_df[direction]
+        # Get value
+        if k.startswith("actual"):
+            data_str = series["Actual Net Data Rate"]
+            # Split units off, e.g. "2.00 Mbps" => "2.00" and convert to float
+            val = float(data_str.split(" ")[0])
+            # Display 6 wide,3dp, zero padded
+            print("{:06.3f}".format(val), end = '')
     
+
+elif args.text: # Default arg
+    # If we have only one section, wrap it in a list
+    if isinstance(args.text, str):
+        args.text = [args.text]
+    # Print specified sections
+    for k in args.text or []:
+        print("\n".join(sections[k]))
+

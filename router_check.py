@@ -1,5 +1,6 @@
 import sys
 import itertools
+import argparse
 import mechanicalsoup
 
 
@@ -61,7 +62,15 @@ def get_router_adsl_status_text(ip_addr):
     return status_text.text # Strip HTML wrapper and return
 
 
+# Parse command line args for sections
+parser = argparse.ArgumentParser(description="Return router ADSL Status")
+parser.add_argument("--show_text", choices=["header","port","counters"], nargs='+')
+args = parser.parse_args()
+
+# Get router text and split into sections
 status_text = get_router_adsl_status_text(IP_ADDR)
 sections = extract_sections(status_text)
-print("\n".join(sections['header']))
+#Print specified sections
+for k in args.show_text or []:
+    print("\n".join(sections[k]))
     

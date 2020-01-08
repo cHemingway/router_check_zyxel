@@ -18,6 +18,7 @@ Requires MechanicalSoup. Requires pandas as well if using data
 '''
 
 import argparse
+import http.cookiejar
 import itertools
 from io import StringIO
 import sys
@@ -59,13 +60,26 @@ def extract_sections(status_text):
 
 def get_router_adsl_status_text(ip_addr):
     ''' Get ADSL status text from router '''
-    # Login
+    # Restore cookies
+    cj = http.cookiejar.LWPCookieJar("cookiejar.cj")
+    try:
+        cj.load()
+    except FileNotFoundError:
+        pass
     browser = mechanicalsoup.StatefulBrowser()
+    browser.set_cookiejar(cj)
+
+
+    # Login if needed
     browser.open(f"http://{ip_addr}/login/login.html")
     browser.select_form('#login')
     browser["AuthName"] = USERNAME
     browser["AuthPassword"] = PASSWORD
     resp = browser.submit_selected()
+
+    # Save session cookie
+    cj = browser.session.cookies
+    cj.save()
 
     # Error is label for AuthPassword field, actually hidden from show
     # For some reason, tag <label id=Message> <font> $message </font> </label> does not work
@@ -73,6 +87,7 @@ def get_router_adsl_status_text(ip_addr):
     if error_msg:
         print(f"Got \"{error_msg.get_text()}\", so username/password incorrect")
         sys.exit(1)
+
 
     # Open new page
     status_page = browser.open(

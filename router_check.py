@@ -93,9 +93,9 @@ DATA_FIELDS = {
     "actual": "Actual Net Data Rate",
     "snr": "SNR Margin",
     "delay": "Actual Delay",
-    "tx_power": "Transmit Power",
-    "rx_power": "Recieve Power",
-    "actual_inp": "Actual INP",
+    "txpower": "Transmit Power",
+    "rxpower": "Recieve Power",
+    "inp": "Actual INP",
     "attenuation": "Total Attenuation",
     "attainable": "Attainable Net Data Rate"
 }

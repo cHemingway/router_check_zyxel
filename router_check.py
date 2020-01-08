@@ -65,6 +65,22 @@ def get_router_adsl_status_text(ip_addr):
 
     return status_text.text # Strip HTML wrapper and return
 
+# What the router calls rows in its section. Without "_up" or "_down" suffix
+DATA_FIELDS = {
+    "line": "Line Rate",
+    "actual": "Actual Net Data Rate",
+    "snr": "SNR Margin",
+    "delay": "Actual Delay",
+    "tx_power": "Transmit Power",
+    "rx_power": "Recieve Power",
+    "actual_inp": "Actual INP",
+    "attenuation": "Total Attenuation",
+    "attainable": "Attainable Net Data Rate"
+}
+
+# Convert into options for argparse data section
+DATA_CHOICES = [k+"_up" for k in DATA_FIELDS.keys()]
+DATA_CHOICES+= [k+"_down" for k in DATA_FIELDS.keys()]
 
 # Parse command line args for sections
 parser = argparse.ArgumentParser(description="Return router ADSL Status, either plain text or for RRD Tool")
@@ -72,7 +88,7 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument("--text", choices=["header","port","counters"], 
                    help="Print the plain text from a section/sections",
                    default="port", nargs='+')
-group.add_argument("--data", choices=["actual_up","actual_down"],
+group.add_argument("--data", choices=DATA_CHOICES,
                     help="Parse the data from the port section, returned values seperated by colon",
                     nargs="+")
 args = parser.parse_args()
@@ -84,11 +100,9 @@ if not (args.text or args.data):
 
 # Get router text and split into sections
 status_text = get_router_adsl_status_text(IP_ADDR)
+sections = extract_sections(status_text)
 
 if args.data:
-    # We have o
-    sections = extract_sections(status_text)
-
     # Get dataframe from port section, fixed width
     port_stringio = StringIO("\n".join(sections['port']))
     port_df = pd.read_fwf(port_stringio, 
@@ -108,13 +122,14 @@ if args.data:
         # Get correct series, upstream or downstream
         direction = "Upstream" if k.endswith("up") else "Downstream"
         series = port_df[direction]
-        # Get value
-        if k.startswith("actual"):
-            data_str = series["Actual Net Data Rate"]
-            # Split units off, e.g. "2.00 Mbps" => "2.00" and convert to float
-            val = float(data_str.split(" ")[0])
-            # Display 6 wide,3dp, zero padded
-            print("{:06.3f}".format(val), end = '')
+        # Get row
+        row_short_name = k.split("_")[0] # First section, before _
+        row_long_name = DATA_FIELDS[row_short_name]
+        data_str = series[row_long_name]
+        # Split units off, e.g. "2.00 Mbps" => "2.00" and convert to float
+        val = float(data_str.split(" ")[0])
+        # Display 6 wide,3dp, zero padded
+        print("{:06.3f}".format(val), end = '')
     
 
 elif args.text: # Default arg

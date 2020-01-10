@@ -14,7 +14,7 @@ e.g. RRDTool Format
 > python ./router_check.py --data actual_up actual_down snr_up snr_down
 00.448:01.152:25.000:29.300
 
-Requires MechanicalSoup, and Pandas
+Requires MechanicalSoup. Requires pandas as well if using data
 '''
 
 import argparse
@@ -23,7 +23,6 @@ from io import StringIO
 import sys
 
 import mechanicalsoup
-import pandas as pd
 
 USERNAME = "admin"
 PASSWORD = "1234"
@@ -126,6 +125,9 @@ status_text = get_router_adsl_status_text(IP_ADDR)
 sections = extract_sections(status_text)
 
 if args.data:
+	# Import pandas here, as it is quite slow (1-2 seconds) to import
+    import pandas as pd
+
     # Get dataframe from port section, fixed width
     port_stringio = StringIO("\n".join(sections['port']))
     port_df = pd.read_fwf(port_stringio,
